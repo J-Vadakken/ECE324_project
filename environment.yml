@@ -19,4 +19,7 @@ dependencies:
   - pip:
     - python-dotenv
     - mkdocs
+    - gdown
+    - opencv-python
+    - mplsoccer
     - -e .
