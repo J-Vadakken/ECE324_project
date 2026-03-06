@@ -1,12 +1,18 @@
 # ECE324_Project_Code
 
-A collaboration between Joel Vadakken, Lucas, and Zakariyya
+A collaboration between Joel Vadakken, Lucas Choi, and Zakariyya Brewster
 
 <a target="_blank" href="https://cookiecutter-data-science.drivendata.org/">
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
 To estimate the position of football players from a camera image.
+
+Potential Applications of Position Tracking:
+- AI Coach: Provide automated tactical feedback on positioning, spacing, and formation discipline during training or match review.
+- Performance Analytics: Generate quantitative metrics such as heatmaps, distance covered, and player involvement.
+- Tactical Visualization: Create visual overlays like formations, team shape, and pitch control regions to help analyze team structure.
+- Scouting Tools: Evaluate player positioning tendencies and spatial awareness for recruitment or talent identification.
 
 ## Project Organization
 
