@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -20,6 +19,18 @@ MODELS_DIR = PROJ_ROOT / "models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
+
+# ==========================================
+# SOCCERNET SYNLOC DATASET PATHS
+# ==========================================
+# Points to: /Users/lucaschoi/Documents/GitHub/ECE324_project/data/SoccerNet/SpiideoSynLoc
+SYNLOC_DIR = DATA_DIR / "SoccerNet" / "SpiideoSynLoc"
+SYNLOC_ANNO_DIR = SYNLOC_DIR / "annotations"
+SYNLOC_IMG_DIR = SYNLOC_DIR / "train"
+
+# YOLO Training Data Output (Where we will put the .txt labels later)
+YOLO_DATA_DIR = PROCESSED_DATA_DIR / "yolo_synloc"
+# ==========================================
 
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
