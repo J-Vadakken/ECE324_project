@@ -16,6 +16,14 @@ INTERIM_DATA_DIR = DATA_DIR / "interim"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 EXTERNAL_DATA_DIR = DATA_DIR / "external"
 
+
+# SoccerNetV2 dataset paths
+DATASET_ROOT = PROJ_ROOT / "data" / "SoccerNetV2"
+GSR_DIR = DATASET_ROOT / "gsr"
+BAS_DIR = DATASET_ROOT / "bas"
+VIDEO_DIR = DATASET_ROOT / "videos"
+RAW_CALIB_DIR = DATASET_ROOT / "raw"
+
 MODELS_DIR = PROJ_ROOT / "models"
 
 REPORTS_DIR = PROJ_ROOT / "reports"
