@@ -1,107 +1,81 @@
-import cv2
-import json
-import matplotlib.pyplot as plt
-from mplsoccer import Pitch
 import torch
+import cv2
+import numpy as np
+from torch.utils.data import DataLoader
+import torchvision
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from ECE324_Project.dataset import SynLocDataset, custom_collate_fn
+from ECE324_Project.config import logger
 
-from sskit import unnormalize, world_to_image
-from ECE324_Project.config import SYNLOC_ANNO_DIR, SYNLOC_IMG_DIR, REPORTS_DIR, logger
-
-def visualize_verified_labels(split="train", frame_index=0, save=True):
-
-    json_path = SYNLOC_ANNO_DIR / f"{split}.json"
+def generate_samples(model_path="model_epoch_1.pth", num_samples=3):
+    device = torch.device("cpu")
     
-    logger.info(f"Loading data from {json_path}")
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+    # 1. Load Model
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=None)
+    in_features = model.roi_heads.box_predictor.cls_score.in_features
+    model.roi_heads.box_predictor = FastRCNNPredictor(in_features, 2)
+    
+    logger.info(f"Loading weights from {model_path}...")
+    model.load_state_dict(torch.load(model_path, map_location=device))
+    model.to(device)
+    model.eval()
 
-    # Load image and camera info
-    img_info = data['images'][frame_index]
-    img_path = SYNLOC_IMG_DIR / img_info['file_name']
-    
-    frame = cv2.imread(str(img_path))
-    if frame is None:
-        logger.error(f"Could not load image at {img_path}")
-        return
-        
-    players = [a for a in data['annotations'] if a['image_id'] == img_info['id']]
+    # 2. Init Dataset
+    dataset = SynLocDataset(split="train")
+    loader = DataLoader(dataset, batch_size=1, shuffle=True, collate_fn=custom_collate_fn)
 
-    # Calculate scaling factors for Bounding Boxes (to handle 4K vs 1080p mismatch)
-    json_w = img_info.get('width', frame.shape[1])
-    json_h = img_info.get('height', frame.shape[0])
-    img_h, img_w = frame.shape[:2]
-    
-    scale_x = img_w / json_w
-    scale_y = img_h / json_h
-
-    fig = plt.figure(figsize=(20, 18))
-    ax1 = fig.add_subplot(2, 1, 1) # Top: 4K Image
-    ax2 = fig.add_subplot(2, 1, 2) # Bottom: 2D Pitch
-    
-    # Setup the mplsoccer Pitch to use Custom Dimensions
-    pitch = Pitch(pitch_type='custom', pitch_length=105, pitch_width=68,
-                  pitch_color='#2ecc71', line_color='white', stripe=True, linewidth=3)
-    
-    pitch.draw(ax=ax2)
-
-    # Process and Plot Annotations
-    players_on_pitch_count = 0
-    
-    for p in players:
-        bbox = p.get('bbox')
-        if bbox and len(bbox) == 4:
-            # Scale the [top_left_x, top_left_y, width, height]
-            bx = int(bbox[0] * scale_x)
-            by = int(bbox[1] * scale_y)
-            bw = int(bbox[2] * scale_x)
-            bh = int(bbox[3] * scale_y)
+    logger.info("Generating stacked samples with player counts...")
+    with torch.no_grad():
+        for i, (images, targets) in enumerate(loader):
+            if i >= num_samples: break
             
-            # Draw only the clean green bounding box
-            cv2.rectangle(frame, (bx, by), (bx + bw, by + bh), (0, 255, 0), 2)
-            cv2.putText(frame, f"ID:{p['id']}", (bx, by - 8), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            predictions = model(images)
+            base_img = (images[0].permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+            base_img = cv2.cvtColor(base_img, cv2.COLOR_RGB2BGR)
+            h_img, w_img = base_img.shape[:2]
 
-        pos = p.get('position_on_pitch')
-        if not pos: 
-            continue # This player exists but has no Ground Truth (x,y) location
+            img_gt = base_img.copy()
+            img_preds = base_img.copy()
+            
+            # --- 1. PROCESS GROUND TRUTH ---
+            gt_boxes = targets[0]['boxes']
+            gt_count = len(gt_boxes)
+            for box in gt_boxes:
+                cx, cy, w, h = box
+                x1, y1 = int((cx - w/2) * w_img), int((cy - h/2) * h_img)
+                x2, y2 = int((cx + w/2) * w_img), int((cy + h/2) * h_img)
+                cv2.rectangle(img_gt, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
-        # Handle missing Z-coordinates (we still need sskit tensors to manage data types)
-        pos_3d = torch.tensor([pos[0], pos[1], 0.0 if len(pos) == 2 else pos[2]], dtype=torch.float32)
+            # --- 2. PROCESS PREDICTIONS ---
+            preds = predictions[0]
+            # Filter by confidence threshold
+            keep_idx = preds['scores'] > 0.4
+            pred_boxes = preds['boxes'][keep_idx]
+            pred_scores = preds['scores'][keep_idx]
+            pred_count = len(pred_boxes)
+            
+            for box, score in zip(pred_boxes, pred_scores):
+                x1, y1, x2, y2 = map(int, box)
+                cv2.rectangle(img_preds, (x1, y1), (x2, y2), (0, 255, 0), 1)
+                cv2.putText(img_preds, f"{score:.2f}", (x1, y1-3), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
 
-        plot_x = pos_3d[1].item() + 52.5 
-        plot_y = pos_3d[0].item() + 34.0 
+            # --- 3. DRAW COUNT OVERLAYS ---
+            # Scorecard box at the top right
+            count_color = (0, 255, 0) if gt_count == pred_count else (0, 165, 255) # Green if match, Orange if not
+            
+            # GT Scorecard
+            cv2.rectangle(img_gt, (w_img - 300, 10), (w_img - 10, 60), (0,0,0), -1)
+            cv2.putText(img_gt, f"GT Count: {gt_count}", (w_img - 280, 45), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            
+            # Preds Scorecard
+            cv2.rectangle(img_preds, (w_img - 350, 10), (w_img - 10, 60), (0,0,0), -1)
+            cv2.putText(img_preds, f"Pred Count: {pred_count}", (w_img - 330, 45), cv2.FONT_HERSHEY_SIMPLEX, 1, count_color, 2)
 
-        # Plot the player on the 2D Pitch map
-        pitch.scatter(plot_x, plot_y, ax=ax2, 
-                      c='red', s=180, edgecolors='white', linewidth=2, zorder=5)
-        players_on_pitch_count += 1
-
-    # Debug reporting
-    logger.info(f"Image has {len(players)} bounding boxes.")
-    logger.info(f"Found 2D coordinates for {players_on_pitch_count} of them (Mapping Issue should be fixed now).")
-    
-    if players_on_pitch_count < (len(players) * 0.8):
-        logger.warning("Fewer than 80% of players have pitch coordinates in the JSON Ground Truth.")
-
-    # Display Image
-    ax1.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    ax1.axis('off')
-    ax1.set_title(f"Camera View (Bboxes Only) - Frame {frame_index}", fontsize=18)
-    
-    # 2D title
-    ax2.set_title(f"Tactical Radar (mplsoccer METER Mapping): {players_on_pitch_count} Players Found", fontsize=18)
-    
-    plt.tight_layout()
-    
-    # Save the image
-    if save:
-        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        out_path = REPORTS_DIR / f"verified_labels_{split}_{frame_index:04d}.png"
-        plt.savefig(out_path, dpi=120)
-        logger.info(f"Saved verified visualization to: {out_path}")
-        
-    plt.show()
+            # --- 4. STACK AND SAVE ---
+            stacked_img = cv2.vconcat([img_gt, img_preds])
+            out_path = f"counted_val_{i}.jpg"
+            cv2.imwrite(out_path, stacked_img)
+            logger.info(f"Saved {out_path} | GT: {gt_count} | Pred: {pred_count}")
 
 if __name__ == "__main__":
-    # Visualize and save the first frame of the train split
-    visualize_verified_labels("train", 0, save=True)
+    generate_samples()
