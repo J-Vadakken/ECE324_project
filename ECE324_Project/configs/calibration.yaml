@@ -1,0 +1,15 @@
+# SoccerNet Camera Calibration - 14 Keypoint Pitch Detector
+
+# 1. Paths
+path: ./data/processed/yolo-calibration-2023
+train: images/train 
+val: images/valid   
+
+# 2. Keypoint Configuration
+# We have 14 keypoints, and each has 3 values (x, y, visibility)
+kpt_shape: [14, 3] 
+
+# 3. Class Configuration
+# We only have one bounding box class for the pose model to find: the pitch itself.
+names:
+  0: Pitch

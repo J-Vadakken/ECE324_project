@@ -29,7 +29,18 @@ SYNLOC_ANNO_DIR = SYNLOC_DIR / "annotations"
 SYNLOC_IMG_DIR = SYNLOC_DIR / "train"
 
 # YOLO Training Data Output (Where we will put the .txt labels later)
-YOLO_DATA_DIR = PROCESSED_DATA_DIR / "yolo_synloc"
+YOLO_DATA_DIR = PROCESSED_DATA_DIR / "yolo-synloc"
+SYNLOC_CONFIG_PATH = PROJ_ROOT / "ECE324_Project" / "configs" / "synloc.yaml"
+# ==========================================
+
+# ==========================================
+# SOCCERNET CALIBRATION DATASET PATHS
+# ==========================================
+CALIB_DIR = DATA_DIR / "SoccerNet" / "calibration-2023"
+
+# YOLO Pose Training Data Output (Where we put the 14-keypoint labels and symlinked images)
+YOLO_CALIB_DIR = PROCESSED_DATA_DIR / "yolo-calibration-2023"
+CALIB_CONFIG_PATH = PROJ_ROOT / "ECE324_Project" / "configs" / "calibration.yaml"
 # ==========================================
 
 # If tqdm is installed, configure loguru with tqdm.write

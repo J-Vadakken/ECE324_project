@@ -31,8 +31,8 @@ def prepare_targets_rcnn(targets, device, img_size=(736, 1920)):
 class SynLocDataset(Dataset):
     def __init__(self, split="train", img_size=(736, 1920)):
         from ECE324_Project.config import PROCESSED_DATA_DIR, SYNLOC_ANNO_DIR
-        self.img_dir = PROCESSED_DATA_DIR / "yolo_synloc" / "images" / split
-        self.lbl_dir = PROCESSED_DATA_DIR / "yolo_synloc" / "labels" / split
+        self.img_dir = PROCESSED_DATA_DIR / "yolo-synloc" / "images" / split
+        self.lbl_dir = PROCESSED_DATA_DIR / "yolo-synloc" / "labels" / split
         self.img_size = img_size
 
         with open(SYNLOC_ANNO_DIR / f"{split}.json", 'r') as f:

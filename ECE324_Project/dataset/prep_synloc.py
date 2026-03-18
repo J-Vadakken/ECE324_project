@@ -7,6 +7,7 @@ from ECE324_Project.config import SYNLOC_ANNO_DIR, SYNLOC_IMG_DIR, PROCESSED_DAT
 YOLO_DIR = PROCESSED_DATA_DIR / "yolo-synloc"
 
 def convert_to_yolo(split="train"):
+    # Note: Ensure your validation file matches this name (e.g., 'val.json' or 'valid.json')
     json_path = SYNLOC_ANNO_DIR / f"{split}.json"
     if not json_path.exists():
         logger.error(f"Could not find {json_path}")
@@ -16,7 +17,7 @@ def convert_to_yolo(split="train"):
     with open(json_path, 'r') as f:
         data = json.load(f)
 
-    # Setup YOLO directory structure: /images/train and yolo-synloc/labels/train
+    # Setup YOLO directory structure
     img_out_dir = YOLO_DIR / "images" / split
     lbl_out_dir = YOLO_DIR / "labels" / split
     img_out_dir.mkdir(parents=True, exist_ok=True)
@@ -70,14 +71,16 @@ def convert_to_yolo(split="train"):
                     w_norm = bw / img_w
                     h_norm = bh / img_h
 
-                    # Class ID is 0 (Player)
                     # Clip values to ensure they stay between 0 and 1
                     cx_norm = max(0.0, min(1.0, cx_norm))
                     cy_norm = max(0.0, min(1.0, cy_norm))
                     w_norm = max(0.0, min(1.0, w_norm))
                     h_norm = max(0.0, min(1.0, h_norm))
 
-                    f.write(f"0 {cx_norm:.6f} {cy_norm:.6f} {w_norm:.6f} {h_norm:.6f}\n")
+                    # Safely grab category_id (COCO is usually 1-indexed, YOLO needs 0-indexed)
+                    class_id = anno.get('category_id', 1) - 1
+
+                    f.write(f"{class_id} {cx_norm:.6f} {cy_norm:.6f} {w_norm:.6f} {h_norm:.6f}\n")
 
         processed_count += 1
         if processed_count % 100 == 0:
@@ -86,5 +89,7 @@ def convert_to_yolo(split="train"):
     logger.info(f"Finished {split}! Processed {processed_count} images.")
 
 if __name__ == "__main__":
-    convert_to_yolo("train")
-    # convert_to_yolo("val") # Uncomment if you downloaded the validation split too!
+    # If your validation split is named differently (like 'valid'), update the list below
+    splits = ["train", "val"] 
+    for s in splits:
+        convert_to_yolo(s)
