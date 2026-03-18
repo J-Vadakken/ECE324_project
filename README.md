@@ -8,6 +8,19 @@ A collaboration between Joel Vadakken, Lucas Choi, and Zakariyya Brewster!
 
 To estimate the position of football players from a camera image.
 
+## Proposed Pipeline
+1. Run yolo-pose to find 14 keypoints on the field
+    - Corners of penalty box
+    - Corners of goal area
+    - Corner flags
+    - Midfield points (halfway line meets sideline)
+2. Use keypoints to find the homography matrix (projective transformation between two planes)
+3. Run YOLO object detection model to find players on the field
+4. Project player locations onto a 2D pitch using homography matrix
+   - Additional: Kalman filter for sequential (video) data, team matching by jersey colour 
+5. Baseline comparison of finetuned vs. zero-shot, lightweight models
+6. High-level tactical analysis from projected player locations in web app demo
+
 Potential Applications of Position Tracking:
 - AI Coach: Provide automated tactical feedback on positioning, spacing, and formation discipline during training or match review.
 - Performance Analytics: Generate quantitative metrics such as heatmaps, distance covered, and player involvement.
