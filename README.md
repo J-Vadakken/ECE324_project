@@ -17,52 +17,51 @@ Potential Applications of Position Tracking:
 ## Project Organization
 
 ```
-├── LICENSE            <- Open-source license if one is chosen
-├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
+├── LICENSE
+├── Makefile
 ├── README.md          <- The top-level README for developers using this project.
 ├── data
-│   ├── external       <- Data from third party sources.
-│   ├── interim        <- Intermediate data that has been transformed.
-│   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
+│   ├── SoccerNet
+│   │   ├── calibration-2023    <- Raw keypoint dataset (JSON/JPG)
+│   │   └── SpiideoSynLoc       <- Raw player localization dataset (JSON/JPG)
+│   └── processed
+│       ├── yolo-calibration    <- Formatted for YOLO Pose (Images + 14-KP labels)
+│       └── yolo-synloc         <- Formatted for YOLO Detect (Symlinked images + labels)
 │
-├── docs               <- A default mkdocs project; see www.mkdocs.org for details
+├── models
+│   └── runs                    <- YOLO training outputs (weights, plots, results.csv)
+│       ├── calibration         <- Best pitch geometry weights (best.pt)
+│       └── synloc_detection    <- Best player detection weights (best.pt)
 │
-├── models             <- Trained and serialized models, model predictions, or model summaries
+├── notebooks           <- Experimental discovery and EDA
 │
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
+├── pyproject.toml
+├── reports
+│   └── figures         <- Training loss curves and 2D pitch projection graphics
 │
-├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         ECE324_Project and configuration for tools like black
-│
-├── references         <- Data dictionaries, manuals, and all other explanatory materials.
-│
-├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
-│   └── figures        <- Generated graphics and figures to be used in reporting
-│
-├── requirements.txt   <- The requirements file for reproducing the analysis environment, e.g.
-│                         generated with `pip freeze > requirements.txt`
-│
-├── setup.cfg          <- Configuration file for flake8
-│
-└── ECE324_Project   <- Source code for use in this project.
+├── requirements.txt
+├── ECE324_Project      <- Source code
     │
-    ├── __init__.py             <- Makes ECE324_Project a Python module
+    ├── __init__.py
+    ├── config.py       <- Project paths and global constants (PROJ_ROOT, etc.)
     │
-    ├── config.py               <- Store useful variables and configuration
+    ├── dataset         <- Data preparation logic
+    │   ├── __init__.py
+    │   ├── prep_calibration.py <- Converts SoccerNet to 14-keypoint YOLO format
+    │   └── prep_synloc.py      <- Converts SynLoc COCO to YOLO detect format
     │
-    ├── dataset.py              <- Scripts to download or generate data
+    ├── core            <- The mathematical "Brain" of the project
+    │   ├── __init__.py
+    │   └── geometry.py         <- Homography (H) calculation and RANSAC filtering
     │
-    ├── features.py             <- Code to create features for modeling
+    ├── training        <- Training execution scripts
+    │   ├── __init__.py
+    │   ├── train_calibration.py <- Kick off YOLOv8-Pose training
+    │   └── train_synloc.py      <- Kick off YOLOv8-Detect training
     │
-    ├── modeling                
-    │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
-    │
-    └── plots.py                <- Code to create visualizations
+    └── visualization
+        ├── __init__.py
+        └── pitch_mapping.py    <- Generates the top-down 2D mini-map
 ```
 
 --------
