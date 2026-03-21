@@ -22,22 +22,23 @@ def finetune_manual():
     # We also disable mosaic augmentation because 40 images is a small set and 
     # we want the model to see the full, clean frame every time.
     model.train(
-        data=str(yaml_path),
-        epochs=100,           # 40 images train very fast (seconds per epoch)
-        imgsz=640,
-        device='mps',         # Use your M2 Max GPU
-        batch=8,              # Small batch for a small dataset
-        lr0=0.001,            # Start with a 10x smaller learning rate than default
-        lrf=0.01,             # Final learning rate factor
-        augment=True,
-        mosaic=0.0,           # Disable mosaic for precise keypoint alignment
-        close_mosaic=0,
-        workers=0,            # macOS stability
-        amp=False,            # macOS stability
-        project=str(PROJ_ROOT / "models" / "runs"),
-        name="calibration_finetuned",
-        exist_ok=True
-    )
+    data=str(yaml_path),
+    epochs=200,           # More epochs to really 'burn in' the coordinates
+    imgsz=960,            # Match your inference size
+    lr0=0.0001,           # VERY low learning rate (don't break the weights!)
+    device='mps',          # Use GPU if available
+    degrees=0.0,          
+    translate=0.0,        
+    scale=0.0,            
+    shear=0.0,            
+    perspective=0.0,
+    flipud=0.0,
+    fliplr=0.0,           # Keep this 0.0 if the camera never flips
+    mosaic=0.0,           
+    copy_paste=0.0,
+    project=str(PROJ_ROOT / "models" / "runs"),
+    name="static_arena_finetune"
+)
 
     logger.info("🎉 Fine-tuning complete! Check 'calibration_finetuned' for results.")
 
