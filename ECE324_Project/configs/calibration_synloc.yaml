@@ -1,0 +1,17 @@
+# SoccerNet Camera Calibration on Annotated Synloc Dataset- 14 Keypoint Pitch Detector
+
+# 1. Paths
+path: ./data/processed/yolo-calibration
+train: images
+val: images
+
+# 2. Keypoint Configuration
+# We have 14 keypoints, and each has 3 values (x, y, visibility)
+kpt_shape: [14, 3] 
+
+# 3. Class Configuration
+# We only have one bounding box class for the pose model to find: the pitch itself.
+names:
+  0: Pitch
+
+flip_idx: [8, 9, 10, 11, 12, 13, 6, 7, 0, 1, 2, 3, 4, 5]

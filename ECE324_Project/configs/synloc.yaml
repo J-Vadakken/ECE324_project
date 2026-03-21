@@ -1,7 +1,7 @@
 # SpiideoSynLoc Player Detection Configuration
 
 # 1. Paths (Relative to where you run the YOLO command)
-path: ./data/processed/yolo-synloc 
+path: ./data/processed/yolo-synloc-10k
 train: images/train  
 val: images/val    # Change to images/valid if that is what your folder is named
 

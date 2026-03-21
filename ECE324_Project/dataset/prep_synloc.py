@@ -1,27 +1,22 @@
 import json
 import os
-import pandas as pd
+import shutil
 from pathlib import Path
 from ECE324_Project.config import SYNLOC_ANNO_DIR, SYNLOC_IMG_DIR, PROCESSED_DATA_DIR, logger
 
-# The output folder for YOLO training
+# Output folder for YOLO training
 YOLO_DIR = PROCESSED_DATA_DIR / "yolo-synloc"
 
-# Verified HD Constants for your 1080p version
-VERIFIED_W = 1920
-VERIFIED_H = 1080
-
-def convert_to_yolo(split="train"):
-    # SoccerNet sometimes uses 'valid.json' or 'val.json' - checking both
+def prep_synloc(split="train"):
     json_path = SYNLOC_ANNO_DIR / f"{split}.json"
     if not json_path.exists() and split == "val":
         json_path = SYNLOC_ANNO_DIR / "valid.json"
         
     if not json_path.exists():
-        logger.error(f"Could not find annotation file for {split} at {json_path}")
+        logger.error(f"❌ Could not find annotation file for {split} at {json_path}")
         return
 
-    logger.info(f"Processing {split} split...")
+    logger.info(f"🚀 Processing {split} split using native JSON dimensions...")
     with open(json_path, 'r') as f:
         data = json.load(f)
 
@@ -31,10 +26,10 @@ def convert_to_yolo(split="train"):
     img_out_dir.mkdir(parents=True, exist_ok=True)
     lbl_out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Map annotations to image IDs
+    # Map annotations to image IDs for faster lookup
     anno_dict = {img['id']: [] for img in data['images']}
     for anno in data['annotations']:
-        if anno['image_id'] in anno_dict:
+        if 'image_id' in anno:
             anno_dict[anno['image_id']].append(anno)
 
     processed_count = 0
@@ -43,58 +38,58 @@ def convert_to_yolo(split="train"):
         img_id = img_info['id']
         file_name = img_info['file_name']
         
-        # 1. Use .resolve() to create absolute path symlinks (Fixes NoneType errors)
+        # Extract the native dimensions directly from the JSON
+        json_w = img_info['width']
+        json_h = img_info['height']
+        
         src_img_path = (SYNLOC_IMG_DIR / file_name).resolve()
         if not src_img_path.exists():
             continue
 
+        # Create symlink for the image
         dst_img_path = img_out_dir / Path(file_name).name
         if not dst_img_path.exists():
             os.symlink(src_img_path, dst_img_path)
 
-        # 2. Prepare label file
         txt_name = Path(file_name).stem + ".txt"
         lbl_out_path = lbl_out_dir / txt_name
         
         with open(lbl_out_path, 'w') as f:
             for anno in anno_dict.get(img_id, []):
-                bbox = anno.get('bbox')
-                if not bbox or len(bbox) != 4:
-                    continue
+                bbox = anno.get('bbox') # [x, y, w, h]
+                if not bbox: continue
 
-                # COCO: [top_left_x, top_left_y, width, height]
                 bx, by, bw, bh = bbox
 
-                # 3. Scale Check: If labels are 4K but images are 1080p
-                # We check if coordinates exceed 1920
-                if bx > 2000 or (bx + bw) > 2000:
-                    bx /= 2.0  # 3840 -> 1920
-                    by /= (1504 / 1080) # 1504 -> 1080
-                    bw /= 2.0
-                    bh /= (1504 / 1080)
+                # 1. YOLO Normalization using the JSON's native dimensions
+                cx_norm = (bx + (bw / 2.0)) / json_w
+                cy_norm = (by + (bh / 2.0)) / json_h
+                w_norm = bw / json_w
+                h_norm = bh / json_h
 
-                # YOLO: [center_x, center_y, width, height] (Normalized)
-                cx_norm = (bx + (bw / 2.0)) / VERIFIED_W
-                cy_norm = (by + (bh / 2.0)) / VERIFIED_H
-                w_norm = bw / VERIFIED_W
-                h_norm = bh / VERIFIED_H
-
-                # Clamp to [0.0, 1.0]
+                # 2. Clamp values just in case they bleed slightly off the 4K canvas
                 cx_norm = max(0.0, min(1.0, cx_norm))
                 cy_norm = max(0.0, min(1.0, cy_norm))
                 w_norm = max(0.0, min(1.0, w_norm))
                 h_norm = max(0.0, min(1.0, h_norm))
 
-                # class_id 0 = 'player'
-                f.write(f"0 {cx_norm:.6f} {cy_norm:.6f} {w_norm:.6f} {h_norm:.6f}\n")
+                # 3. Class ID fix (JSON is 1, YOLO expects 0)
+                # Since we are only tracking players, we can hardcode 0
+                class_id = 0
+
+                f.write(f"{class_id} {cx_norm:.6f} {cy_norm:.6f} {w_norm:.6f} {h_norm:.6f}\n")
 
         processed_count += 1
         if processed_count % 500 == 0:
-            logger.info(f"Progress: {processed_count} images linked and labeled...")
+            logger.info(f"⏳ Processed {processed_count} images...")
 
-    logger.info(f"Done! {split} split complete with {processed_count} images.")
+    logger.info(f"✅ {split} split complete. Total: {processed_count}")
 
 if __name__ == "__main__":
-    # Process both splits to ensure you have a valid val set for the trainer
+    # Clean the old corrupted directory first
+    if YOLO_DIR.exists():
+        logger.info("🧹 Cleaning old YOLO directory...")
+        shutil.rmtree(YOLO_DIR)
+    
     for s in ["train", "val"]:
-        convert_to_yolo(s)
+        prep_synloc(s)

@@ -31,7 +31,7 @@ def generate_eval_comparison(num_images=5):
             # kpts structure: [num_keypoints, 3] -> (x, y, conf)
             kpts = results.keypoints.data[0].cpu().numpy()
             for idx, (x, y, conf) in enumerate(kpts):
-                margin = 50
+                margin = 5
                 if conf > 0.4 and (margin < x < w-margin) and (margin < y < h-margin):
                     px, py = int(x), int(y)
                     pred_kpts.append((px, py))

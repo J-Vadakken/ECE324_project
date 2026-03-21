@@ -43,6 +43,14 @@ YOLO_CALIB_DIR = PROCESSED_DATA_DIR / "yolo-calibration-2023"
 CALIB_CONFIG_PATH = PROJ_ROOT / "ECE324_Project" / "configs" / "calibration.yaml"
 # ==========================================
 
+# ==========================================
+# MANUALLY ANNOTATED SYNLOC CALIBRATION DATASET PATHS
+# ==========================================
+# YOLO Pose Training Data Output (Where we put the 14-keypoint labels and symlinked images)
+YOLO_CALIB_SYNLOC_DIR = PROCESSED_DATA_DIR / "yolo-calibration"
+CALIB_SYNLOC_CONFIG_PATH = PROJ_ROOT / "ECE324_Project" / "configs" / "calibration_synloc.yaml"
+# ==========================================
+
 # If tqdm is installed, configure loguru with tqdm.write
 # https://github.com/Delgan/loguru/issues/135
 try:
