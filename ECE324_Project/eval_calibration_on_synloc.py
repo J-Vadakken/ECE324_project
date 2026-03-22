@@ -6,7 +6,8 @@ from ECE324_Project.config import PROJ_ROOT, logger
 
 def generate_eval_comparison(num_images=5):
     # 1. PATHS
-    model_path = PROJ_ROOT / "models/runs/calibration_finetuned/weights/best.pt"
+    model_path = PROJ_ROOT / "models/runs/static_arena_finetune2/weights/best.pt"
+
     # Use the SynLoc images specifically
     synloc_img_dir = PROJ_ROOT / "data/processed/yolo-synloc/images/train"
     output_dir = PROJ_ROOT / "models/runs/calibration/synloc_alignment_check"
