@@ -7,8 +7,10 @@ Usage:
 
 from SoccerNet.Downloader import SoccerNetDownloader
 mySoccerNetDownloader=SoccerNetDownloader(LocalDirectory="data/SoccerNet")
-mySoccerNetDownloader.downloadDataTask(task="SpiideoSynLoc", split=["train","valid","test","challenge"], version="fullhd")
-mySoccerNetDownloader.downloadDataTask(task="calibration-2023", split=["train", "valid", "test"])
+# mySoccerNetDownloader.downloadDataTask(task="SpiideoSynLoc", split=["train","valid","test","challenge"], version="fullhd")
+mySoccerNetDownloader.downloadDataTask(task="SpiideoSynLoc", split=["train"], version="fullhd")
+
+# mySoccerNetDownloader.downloadDataTask(task="calibration-2023", split=["train", "valid", "test"])
 
 
 '''

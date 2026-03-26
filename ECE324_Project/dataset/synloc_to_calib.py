@@ -31,15 +31,17 @@ def click_event(event, x, y, flags, params):
         if len(current_kps) < 14:
             current_kps.append((0, 0, 0)) # Record as invisible/skipped
 
-def annotate():
+def annotate(start=42):
     global current_kps
     # Get all images and sort them alphabetically
     images = sorted([f for f in os.listdir(IMG_DIR) if f.endswith(('.jpg', '.png'))])
+    images = images[start:]  # Start from a specific index for annotation
     
     cv2.namedWindow("Annotator", cv2.WINDOW_NORMAL)
     cv2.setMouseCallback("Annotator", click_event)
 
     for idx, img_name in enumerate(images):
+        true_idx = start + idx
         save_path = LABEL_DIR / f"{Path(img_name).stem}.txt"
         img_dest_path = IMAGE_DEST_DIR / img_name
         
@@ -64,7 +66,7 @@ def annotate():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
 
             # --- STATUS BAR ---
-            count_msg = f"Image {idx+1}/{len(images)}"
+            count_msg = f"Image {true_idx + 1}/{len(images) + start}"
             kpt_msg = f"Click: {KP_NAMES[len(current_kps)]}" if len(current_kps) < 14 else "DONE (S to Save)"
             
             # Simple UI overlay at the top
