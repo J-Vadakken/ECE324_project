@@ -1,87 +1,124 @@
-import cv2
-import random
+import torch
 import numpy as np
-from ultralytics import YOLO
+import os
+import time
 from pathlib import Path
+from ultralytics import YOLO
+from scipy.optimize import linear_sum_assignment
+from tqdm import tqdm
 from ECE324_Project.config import PROJ_ROOT, logger
 
-def generate_side_by_side_validation(num_samples=3):
-    # 1. EXPLICIT PATHS
-    model_path = PROJ_ROOT / "models" / "runs" / "synloc_50" / "weights" / "best.pt"
-    img_dir = PROJ_ROOT / "data" / "processed" / "yolo-synloc-10k" / "images" / "val"
-    lbl_dir = PROJ_ROOT / "data" / "processed" / "yolo-synloc-10k" / "labels" / "val"
-    output_dir = PROJ_ROOT / "debug_preds" / "final_side_by_side"
-    output_dir.mkdir(parents=True, exist_ok=True)
+def get_iou(boxA, boxB):
+    xA, yA = max(boxA[0], boxB[0]), max(boxA[1], boxB[1])
+    xB, yB = min(boxA[2], boxB[2]), min(boxA[3], boxB[3])
+    interArea = max(0, xB - xA) * max(0, yB - yA)
+    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+    return interArea / float(boxAArea + boxBArea - interArea) if (boxAArea + boxBArea - interArea) > 0 else 0
 
-    if not model_path.exists():
-        logger.error(f"❌ Model not found at {model_path}")
-        return
+def calculate_ap(precisions, recalls):
+    """Calculates Average Precision using all-points interpolation."""
+    mrec = np.concatenate(([0.0], recalls, [1.0]))
+    mpre = np.concatenate(([1.0], precisions, [0.0]))
+    mpre = np.maximum.accumulate(mpre[::-1])[::-1]
+    i = np.where(mrec[1:] != mrec[:-1])[0]
+    return np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
 
-    model = YOLO(model_path)
-    img_files = list(img_dir.glob("*.jpg"))
-    samples = random.sample(img_files, min(num_samples, len(img_files)))
+def evaluate_at_threshold(model, img_files, lbl_dir, conf_thresh, iou_thresh=0.5):
+    all_scores, all_matches = [], []
+    total_gt = 0
+    total_preds = 0
 
-    for img_path in samples:
-        # Load Original
-        img_orig = cv2.imread(str(img_path))
-        h, w = img_orig.shape[:2]
-        
-        # Create two canvases
-        canvas_gt = img_orig.copy()
-        canvas_pred = img_orig.copy()
-
-        # Initialize Counters
-        gt_count = 0
-        pred_count = 0
-
-        # 2. DRAW GROUND TRUTH
+    for img_path in tqdm(img_files, desc=f"Evaluating @ conf={conf_thresh}", leave=False):
+        # 1. Load GT
+        gt_boxes = []
         lbl_path = lbl_dir / f"{img_path.stem}.txt"
         if lbl_path.exists():
             with open(lbl_path, 'r') as f:
                 for line in f:
                     parts = list(map(float, line.strip().split()))
-                    if len(parts) < 5: continue
-                    
-                    gt_count += 1 # Increment GT counter
-                    cls, cx, cy, bw, bh = parts[:5]
-                    
-                    u1 = int((cx - bw/2) * w)
-                    v1 = int((cy - bh/2) * h)
-                    u2 = int((cx + bw/2) * w)
-                    v2 = int((cy + bh/2) * h)
-                    
-                    cv2.rectangle(canvas_gt, (u1, v1), (u2, v2), (0, 0, 255), 3) # RED GT
-                    cv2.putText(canvas_gt, f"GT:{int(cls)}", (u1, v1 - 10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    _, cx, cy, bw, bh = parts[:5]
+                    gt_boxes.append([cx-bw/2, cy-bh/2, cx+bw/2, cy+bh/2])
+        total_gt += len(gt_boxes)
 
-        # 3. DRAW PREDICTIONS
-        results = model.predict(source=str(img_path), conf=0.35, imgsz=960, verbose=False)[0]
-        
-        pred_count = len(results.boxes) # Increment Pred counter
-
+        # 2. Predict
+        results = model.predict(img_path, conf=conf_thresh, imgsz=960, verbose=False)[0]
+        h, w = results.orig_shape
+        preds = []
         for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            cls = int(box.cls[0])
+            b = box.xyxy[0].cpu().numpy()
+            preds.append({'box': [b[0]/w, b[1]/h, b[2]/w, b[3]/h], 'score': float(box.conf[0])})
+        
+        preds = sorted(preds, key=lambda x: x['score'], reverse=True)
+        total_preds += len(preds)
+
+        # 3. Hungarian Match (Strict 1-to-1)
+        if len(preds) > 0 and len(gt_boxes) > 0:
+            iou_matrix = np.zeros((len(preds), len(gt_boxes)))
+            for p_idx, p in enumerate(preds):
+                for g_idx, g in enumerate(gt_boxes):
+                    iou_matrix[p_idx, g_idx] = get_iou(p['box'], g)
             
-            cv2.rectangle(canvas_pred, (x1, y1), (x2, y2), (0, 255, 0), 2) # GREEN PRED
-            cv2.putText(canvas_pred, f"ID:{cls}", (x1, y1 - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            # Use linear_sum_assignment to find optimal global matching
+            p_indices, g_indices = linear_sum_assignment(-iou_matrix) # Negative for maximization
+            
+            matched_preds = set()
+            for p_idx, g_idx in zip(p_indices, g_indices):
+                if iou_matrix[p_idx, g_idx] >= iou_thresh:
+                    all_scores.append(preds[p_idx]['score'])
+                    all_matches.append(1) # True Positive
+                    matched_preds.add(p_idx)
+            
+            # Remaining preds are False Positives
+            for p_idx in range(len(preds)):
+                if p_idx not in matched_preds:
+                    all_scores.append(preds[p_idx]['score'])
+                    all_matches.append(0)
+        else:
+            # All preds are FPs if no GT exists
+            for p in preds:
+                all_scores.append(p['score'])
+                all_matches.append(0)
 
-        # 4. ASSEMBLE & STYLE
-        combined = np.hstack((canvas_gt, canvas_pred))
-        
-        # Add Header Labels with Counts
-        cv2.rectangle(combined, (0, 0), (w*2, 60), (0, 0, 0), -1)
-        
-        # Format the header text to include the counts
-        header_text = f"FILE: {img_path.name} | GROUND TRUTH (Count: {gt_count}) | PREDICTION (Count: {pred_count})"
-        cv2.putText(combined, header_text, (50, 40), 
-                    cv2.FONT_HERSHEY_DUPLEX, 1.0, (255, 255, 255), 2)
+    # Calculate PR Curve
+    all_scores, all_matches = np.array(all_scores), np.array(all_matches)
+    indices = np.argsort(-all_scores)
+    tp_cumsum = np.cumsum(all_matches[indices])
+    fp_cumsum = np.cumsum(1 - all_matches[indices])
+    
+    recalls = tp_cumsum / total_gt if total_gt > 0 else np.zeros_like(tp_cumsum)
+    precisions = tp_cumsum / (tp_cumsum + fp_cumsum) if len(tp_cumsum) > 0 else np.zeros_like(tp_cumsum)
+    
+    ap = calculate_ap(precisions, recalls)
+    f1 = 2 * (precisions[-1] * recalls[-1]) / (precisions[-1] + recalls[-1]) if (precisions[-1] + recalls[-1]) > 0 else 0
 
-        # Save
-        save_path = output_dir / f"compare_{img_path.name}"
-        cv2.imwrite(str(save_path), combined)
-        logger.info(f"✅ Side-by-side saved: {save_path.name} (GT: {gt_count}, Pred: {pred_count})")
+    return {
+        "ap": ap, "precision": precisions[-1] if len(precisions) > 0 else 0,
+        "recall": recalls[-1] if len(recalls) > 0 else 0,
+        "f1": f1, "count": total_preds, "gt_total": total_gt
+    }
 
 if __name__ == "__main__":
-    generate_side_by_side_validation(5)
+    MODEL_P = PROJ_ROOT / "models/runs/synloc_50/weights/best.pt"
+    IMG_D = PROJ_ROOT / "data/processed/yolo-synloc-10k/images/val"
+    LBL_D = PROJ_ROOT / "data/processed/yolo-synloc-10k/labels/val"
+    
+    model = YOLO(MODEL_P)
+    img_files = sorted(list(IMG_D.glob("*.jpg")))
+
+    # --- REPORT 1: RESEARCH MODE ---
+    res_research = evaluate_at_threshold(model, img_files, LBL_D, conf_thresh=0.001)
+
+    # --- REPORT 2: OPERATIONAL MODE ---
+    res_op = evaluate_at_threshold(model, img_files, LBL_D, conf_thresh=0.40)
+
+    print("\n" + "="*55)
+    print(f"{'Metric':<20} | {'Research (0.001)':<18} | {'Operational (0.40)':<18}")
+    print("-" * 55)
+    print(f"{'mAP@50':<20} | {res_research['ap']:>18.4f} | {'N/A (Truncated)':>18}")
+    print(f"{'Precision':<20} | {res_research['precision']:>18.4f} | {res_op['precision']:>18.4f}")
+    print(f"{'Recall':<20} | {res_research['recall']:>18.4f} | {res_op['recall']:>18.4f}")
+    print(f"{'F1-Score':<20} | {res_research['f1']:>18.4f} | {res_op['f1']:>18.4f}")
+    print(f"{'Pred Count':<20} | {res_research['count']:>18} | {res_op['count']:>18}")
+    print(f"{'Ground Truth':<20} | {res_research['gt_total']:>18} | {res_op['gt_total']:>18}")
+    print("="*55)

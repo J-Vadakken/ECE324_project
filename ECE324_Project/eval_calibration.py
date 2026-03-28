@@ -1,85 +1,105 @@
 import cv2
 import numpy as np
-from ultralytics import YOLO
+import torch
+import os
 from pathlib import Path
+from ultralytics import YOLO
+from tqdm import tqdm
 from ECE324_Project.config import PROJ_ROOT, logger
 
-def generate_eval_comparison(num_images=5):
-    model_path = PROJ_ROOT / "models/runs/calibration/weights/best.pt"
-    valid_img_dir = PROJ_ROOT / "data" / "processed" / "yolo-calibration-2023" / "images" / "valid"
-    output_dir = PROJ_ROOT / "models" / "runs" / "calibration" / "eval_plots"
-    output_dir.mkdir(parents=True, exist_ok=True)
+def parse_yolo_pose_label(label_path, num_kpts=14):
+    """
+    Parses a YOLO pose .txt file.
+    Returns a list of keypoints: [[x1, y1, v1], [x2, y2, v2], ...]
+    """
+    if not label_path.exists():
+        return None
     
-    if not model_path.exists():
-        logger.error(f"❌ Model weights not found at {model_path}")
-        return
+    with open(label_path, 'r') as f:
+        lines = f.readlines()
+    
+    if not lines:
+        return None
 
-    img_files = list(valid_img_dir.glob("*.jpg"))[:num_images]
+    # We assume the first detection is the pitch (class 0)
+    line = lines[0].strip().split()
+    # YOLO format: [class, cx, cy, w, h, k1_x, k1_y, k1_v, ...]
+    # Keypoints start at index 5
+    kpts_raw = list(map(float, line[5:]))
+    
+    # Reshape into [num_kpts, 3] -> (x, y, visibility)
+    return np.array(kpts_raw).reshape(-1, 3)
+
+def run_manual_calibration_eval(split="train"):
+    # 1. SETUP PATHS
+    model_path = PROJ_ROOT / "models/runs/synloc_pixel_refinement_1920/weights/best.pt"
+    img_dir = PROJ_ROOT / "data/processed/yolo-calibration/images" 
+    lbl_dir = PROJ_ROOT / "data/processed/yolo-calibration/labels" 
+    
+    device = 'mps' if torch.backends.mps.is_available() else 'cpu'
     model = YOLO(model_path)
+    
+    img_files = list(img_dir.glob("*.jpg")) + list(img_dir.glob("*.png"))
+    
     all_errors = []
+    total_gt_visible = 0
+    total_detected = 0
 
-    for img_path in img_files:
-        img = cv2.imread(str(img_path))
-        h, w = img.shape[:2]
-        img_out = img.copy()
-        img_gt = img.copy()
+    logger.info(f"🚀 Evaluating on MANUALLY ANNOTATED {split} set ({len(img_files)} images)...")
 
-        # 1. PREDICTIONS + ID LABELS
-        results = model(img_path, conf=0.3, verbose=False)[0]
-        pred_kpts = []
-        if results.keypoints is not None:
-            # kpts structure: [num_keypoints, 3] -> (x, y, conf)
-            kpts = results.keypoints.data[0].cpu().numpy()
-            for idx, (x, y, conf) in enumerate(kpts):
-                margin = 5
-                if conf > 0.4 and (margin < x < w-margin) and (margin < y < h-margin):
-                    px, py = int(x), int(y)
-                    pred_kpts.append((px, py))
-                    # Smaller dot (radius 6)
-                    cv2.circle(img_out, (px, py), 6, (0, 255, 0), -1)
-                    # Label the ID next to the dot
-                    cv2.putText(img_out, str(idx), (px + 8, py - 8), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    for img_path in tqdm(img_files):
+        # Match image to label file
+        lbl_path = lbl_dir / f"{img_path.stem}.txt"
+        gt_kpts = parse_yolo_pose_label(lbl_path)
+        
+        if gt_kpts is None:
+            continue
+            
+        # Inference at 1920px
+        results = model.predict(img_path, imgsz=1920, conf=0.1, verbose=False, device=device)[0]
+        h, w = results.orig_shape
+        
+        # Check for detections
+        if results.keypoints is not None and len(results.keypoints.xyn) > 0:
+            pred_xyn = results.keypoints.xyn[0].cpu().numpy() # [14, 2] normalized
+            pred_conf = results.keypoints.conf[0].cpu().numpy() # [14]
 
-        # 2. LABELS (GT) + ID LABELS
-        label_path = Path(str(img_path).replace("images", "labels")).with_suffix(".txt")
-        gt_kpts = []
-        if label_path.exists():
-            with open(label_path, 'r') as f:
-                for line in f:
-                    parts = list(map(float, line.split()))
-                    # Pose labels: class, x, y, w, h, k1_x, k1_y, k1_v, k2_x, k2_y, k2_v...
-                    # In YOLO Pose, visibility is usually the 3rd element in the triplet
-                    kpt_idx = 0
-                    for j in range(5, len(parts), 3):
-                        gx, gy = int(parts[j] * w), int(parts[j+1] * h)
-                        if gx > 0 and gy > 0:
-                            gt_kpts.append((gx, gy))
-                            cv2.circle(img_gt, (gx, gy), 6, (0, 0, 255), -1)
-                            cv2.putText(img_gt, str(kpt_idx), (gx + 8, gy - 8), 
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
-                        kpt_idx += 1
+            for i in range(len(gt_kpts)):
+                # GT is already normalized in YOLO .txt [0.0 - 1.0]
+                xn_gt, yn_gt, vis = gt_kpts[i]
+                
+                if vis > 0: # Only evaluate if you annotated it as visible
+                    total_gt_visible += 1
+                    
+                    if pred_conf[i] > 0.1:
+                        total_detected += 1
+                        
+                        # Convert both to pixel space for MRE
+                        u_p, v_p = pred_xyn[i][0] * w, pred_xyn[i][1] * h
+                        u_gt, v_gt = xn_gt * w, yn_gt * h
+                        
+                        dist = np.sqrt((u_p - u_gt)**2 + (v_p - v_gt)**2)
+                        all_errors.append(dist)
+        else:
+            # Count the missed visible points
+            total_gt_visible += (gt_kpts[:, 2] > 0).sum()
+            logger.warning(f"⚠️ No pitch detected in {img_path.name}")
 
-        # 3. HELPER FOR STYLED TITLES
-        def draw_styled_title(canvas, text, color):
-            font = cv2.FONT_HERSHEY_DUPLEX
-            scale = 1.0
-            thick = 2
-            (t_w, t_h), _ = cv2.getTextSize(text, font, scale, thick)
-            cv2.rectangle(canvas, (10, 10), (10 + t_w + 20, 10 + t_h + 20), (255, 255, 255), -1)
-            cv2.putText(canvas, text, (20, 15 + t_h), font, scale, color, thick)
+    # --- METRICS ---
+    err_arr = np.array(all_errors)
+    mre = np.mean(err_arr) if len(err_arr) > 0 else 0
+    rmse = np.sqrt(np.mean(err_arr**2)) if len(err_arr) > 0 else 0
+    recall = total_detected / total_gt_visible if total_gt_visible > 0 else 0
+    pck_10 = (err_arr < 10).sum() / total_gt_visible if total_gt_visible > 0 else 0
 
-        draw_styled_title(img_gt, "GT (Manual Labels)", (0, 0, 255))
-        draw_styled_title(img_out, "PRED (YOLOv8 Pose)", (0, 180, 0))
-
-        # 4. ASSEMBLE & SAVE
-        combined = np.hstack((img_gt, img_out))
-        save_path = output_dir / f"id_eval_{img_path.stem}.jpg"
-        cv2.imwrite(str(save_path), combined)
-        logger.info(f"✅ Comparison saved with IDs: {save_path.name}")
-
-    if all_errors:
-        logger.info(f"📊 Median Error: {np.median(all_errors):.2f} px")
+    print("\n" + "="*50)
+    print(f"      CALIBRATION REPORT: MANUAL {split.upper()}")
+    print("="*50)
+    print(f"Mean Radial Error (MRE):  {mre:.3f} px")
+    print(f"RMSE:                     {rmse:.3f} px")
+    print(f"Keypoint Recall:          {recall:.2%}")
+    print(f"PCK @ 10px:               {pck_10:.2%}")
+    print("="*50)
 
 if __name__ == "__main__":
-    generate_eval_comparison()
+    run_manual_calibration_eval("train")
