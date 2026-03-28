@@ -55,7 +55,7 @@ def generate_side_by_side_validation(num_samples=3):
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
         # 3. DRAW PREDICTIONS
-        results = model.predict(source=str(img_path), conf=0.3, imgsz=960, verbose=False)[0]
+        results = model.predict(source=str(img_path), conf=0.35, imgsz=960, verbose=False)[0]
         
         pred_count = len(results.boxes) # Increment Pred counter
 
