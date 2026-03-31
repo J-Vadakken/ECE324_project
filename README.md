@@ -44,6 +44,9 @@ Potential Applications of Position Tracking:
 - Tactical Visualization: Create visual overlays like formations, team shape, and pitch control regions to help analyze team structure.
 - Scouting Tools: Evaluate player positioning tendencies and spatial awareness for recruitment or talent identification.
 
+## Model Architecture
+<img width="1920" height="1080" alt="model_arch_324" src="https://github.com/user-attachments/assets/6da6ff93-eb3a-4ac1-8a7b-c36f8bdccd51" />
+
 ## Project Organization
 
 ```
