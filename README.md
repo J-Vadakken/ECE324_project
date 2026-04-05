@@ -52,49 +52,66 @@ Potential Applications of Position Tracking:
 ```
 ├── LICENSE
 ├── Makefile
-├── README.md          <- The top-level README for developers using this project.
-├── data
+├── README.md               <- Top-level README
+├── environment.yml         <- Conda environment
+├── pyproject.toml
+├── yolov8n.pt              <- Pretrained YOLOv8-Detect base weights
+├── yolov8n-pose.pt         <- Pretrained YOLOv8-Pose base weights
+│
+├── data                    <- Not tracked by git; populate via dataset_download.py
 │   ├── SoccerNet
-│   │   ├── calibration-2023    <- Raw keypoint dataset (JSON/JPG)
+│   │   ├── calibration-2023    <- Raw pitch keypoint dataset (JSON/JPG)
 │   │   └── SpiideoSynLoc       <- Raw player localization dataset (JSON/JPG)
 │   └── processed
-│       ├── yolo-calibration    <- Formatted for YOLO Pose (Images + 14-KP labels)
-│       └── yolo-synloc         <- Formatted for YOLO Detect (Symlinked images + labels)
+│       ├── yolo-calibration        <- YOLO Pose format (images + 14-KP labels)
+│       ├── yolo-calibration-2023   <- Alternative calibration split
+│       ├── yolo-synloc             <- YOLO Detect format (full dataset)
+│       └── yolo-synloc-10k         <- YOLO Detect format (10k-image subset)
 │
 ├── models
 │   └── runs                    <- YOLO training outputs (weights, plots, results.csv)
-│       ├── calibration         <- Best pitch geometry weights (best.pt)
-│       └── synloc_detection    <- Best player detection weights (best.pt)
+│       ├── calibration                     <- Pitch keypoint model (best.pt)
+│       ├── synloc_50                       <- Player detection (50-epoch run, best.pt)
+│       └── synloc_pixel_refinement_1920    <- Detection with pixel-level refinement
 │
-├── notebooks           <- Experimental discovery and EDA
+├── references              <- Papers and external references
 │
-├── pyproject.toml
-├── reports
-│   └── figures         <- Training loss curves and 2D pitch projection graphics
+├── docs                    <- MkDocs project documentation
 │
-├── requirements.txt
-├── ECE324_Project      <- Source code
-    │
+└── ECE324_Project          <- Source code
     ├── __init__.py
-    ├── config.py       <- Project paths and global constants (PROJ_ROOT, etc.)
+    ├── config.py           <- Project paths and global constants (PROJ_ROOT, etc.)
+    ├── pipeline.py         <- End-to-end inference: keypoints → homography → player map
+    ├── viz_team.py         <- Team classification by jersey colour (KMeans clustering)
     │
-    ├── dataset         <- Data preparation logic
-    │   ├── __init__.py
-    │   ├── prep_calibration.py <- Converts SoccerNet to 14-keypoint YOLO format
-    │   └── prep_synloc.py      <- Converts SynLoc COCO to YOLO detect format
+    ├── configs             <- YOLO dataset YAML configs
+    │   ├── calibration.yaml
+    │   ├── calibration_synloc.yaml
+    │   └── synloc.yaml
     │
-    ├── core            <- The mathematical "Brain" of the project
-    │   ├── __init__.py
-    │   └── geometry.py         <- Homography (H) calculation and RANSAC filtering
+    ├── dataset             <- Data preparation scripts
+    │   ├── dataset_download.py     <- Downloads SoccerNet datasets via API
+    │   ├── prep_calibration.py     <- Converts calibration-2023 to YOLO Pose format
+    │   ├── prep_synloc.py          <- Converts SpiideoSynLoc COCO to YOLO Detect
+    │   ├── synloc_10k.py           <- Samples a 10k-image subset from SynLoc
+    │   ├── synloc_to_calib.py      <- Re-formats SynLoc labels as calibration targets
+    │   ├── synloc_to_yolo.py       <- Additional SynLoc → YOLO conversion utilities
+    │   ├── edit_anno.py            <- Manual annotation editing helpers
+    │   ├── sync_manual.py          <- Syncs manually annotated samples into dataset
+    │   └── verify_synloc_calib.py  <- Visual verification of synloc/calib alignment
     │
-    ├── training        <- Training execution scripts
-    │   ├── __init__.py
-    │   ├── train_calibration.py <- Kick off YOLOv8-Pose training
-    │   └── train_synloc.py      <- Kick off YOLOv8-Detect training
+    ├── train               <- Training and hyperparameter tuning scripts
+    │   ├── train_calibration.py    <- Trains YOLOv8-Pose for pitch keypoints
+    │   ├── train_synloc.py         <- Trains YOLOv8-Detect for player detection
+    │   └── tune_calibration.py     <- Hyperparameter search for calibration model
     │
-    └── visualization
-        ├── __init__.py
-        └── pitch_mapping.py    <- Generates the top-down 2D mini-map
+    └── eval                <- Evaluation scripts
+        ├── eval_calibration.py         <- Evaluates keypoint model on calibration set
+        ├── eval_synloc.py              <- Evaluates detection model on SynLoc set
+        ├── eval_pipeline.py            <- End-to-end pipeline evaluation
+        ├── eval_calibration_on_synloc.py <- Cross-dataset: calib model on SynLoc
+        ├── eval_synloc_on_calib.py     <- Cross-dataset: detection model on calib set
+        └── model_sizes.py              <- Reports model parameter counts and latency
 ```
 
 --------
