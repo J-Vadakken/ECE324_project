@@ -34,7 +34,7 @@ To estimate the position of football players from a camera image.
 ### 2. Use keypoints to find the homography matrix (projective transformation between two planes)
 ### 3. Run YOLO object detection model to find players on the field
 ### 4. Project player locations onto a 2D pitch using homography matrix
-Additional: Kalman filter for sequential (video) data, team matching by jersey colour 
+Future: Kalman filter for sequential (video) data, team matching by jersey colour 
 ### 5. Baseline comparison of finetuned vs. zero-shot, lightweight models
 ### 6. High-level tactical analysis from projected player locations in web app demo
 
