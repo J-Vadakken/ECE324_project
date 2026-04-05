@@ -60,19 +60,19 @@ Potential Applications of Position Tracking:
 │
 ├── data                    <- Not tracked by git; populate via dataset_download.py
 │   ├── SoccerNet
-│   │   ├── calibration-2023    <- Raw pitch keypoint dataset (JSON/JPG)
-│   │   └── SpiideoSynLoc       <- Raw player localization dataset (JSON/JPG)
+│   │   ├── calibration-2023    <- Raw pitch keypoint dataset
+│   │   └── SpiideoSynLoc       <- Raw player localization dataset
 │   └── processed
-│       ├── yolo-calibration        <- YOLO Pose format (images + 14-KP labels)
-│       ├── yolo-calibration-2023   <- Alternative calibration split
+│       ├── yolo-calibration        <- Manually annotated SpiideoSynLoc images (14 KP)
+│       ├── yolo-calibration-2023   <- Alternative calibration dataset
 │       ├── yolo-synloc             <- YOLO Detect format (full dataset)
 │       └── yolo-synloc-10k         <- YOLO Detect format (10k-image subset)
 │
 ├── models
-│   └── runs                    <- YOLO training outputs (weights, plots, results.csv)
-│       ├── calibration                     <- Pitch keypoint model (best.pt)
+│   └── runs                    <- YOLO training weights
+│       ├── calibration                     <- Pitch keypoint model (best.pt), not used in pipeline
 │       ├── synloc_50                       <- Player detection (50-epoch run, best.pt)
-│       └── synloc_pixel_refinement_1920    <- Detection with pixel-level refinement
+│       └── calibration_synloc              <- Pitch keypoint model from manual annotations
 │
 ├── references              <- Papers and external references
 │
@@ -82,7 +82,7 @@ Potential Applications of Position Tracking:
     ├── __init__.py
     ├── config.py           <- Project paths and global constants (PROJ_ROOT, etc.)
     ├── pipeline.py         <- End-to-end inference: keypoints → homography → player map
-    ├── viz_team.py         <- Team classification by jersey colour (KMeans clustering)
+    ├── viz_team.py         <- Team classification by jersey colour visualization 
     │
     ├── configs             <- YOLO dataset YAML configs
     │   ├── calibration.yaml
@@ -91,14 +91,13 @@ Potential Applications of Position Tracking:
     │
     ├── dataset             <- Data preparation scripts
     │   ├── dataset_download.py     <- Downloads SoccerNet datasets via API
-    │   ├── prep_calibration.py     <- Converts calibration-2023 to YOLO Pose format
+    │   ├── prep_calibration.py     <- Converts calibration-2023 to YOLO Pose format with 14 KP
     │   ├── prep_synloc.py          <- Converts SpiideoSynLoc COCO to YOLO Detect
     │   ├── synloc_10k.py           <- Samples a 10k-image subset from SynLoc
-    │   ├── synloc_to_calib.py      <- Re-formats SynLoc labels as calibration targets
-    │   ├── synloc_to_yolo.py       <- Additional SynLoc → YOLO conversion utilities
+    │   ├── synloc_to_calib.py      <- Script to manually annotate Synloc images for calibration (14 KP)
     │   ├── edit_anno.py            <- Manual annotation editing helpers
     │   ├── sync_manual.py          <- Syncs manually annotated samples into dataset
-    │   └── verify_synloc_calib.py  <- Visual verification of synloc/calib alignment
+    │   └── verify_synloc_calib.py  <- Visual verification of manually annotated image alignment
     │
     ├── train               <- Training and hyperparameter tuning scripts
     │   ├── train_calibration.py    <- Trains YOLOv8-Pose for pitch keypoints

@@ -32,7 +32,7 @@ def parse_yolo_pose_label(label_path, num_kpts=14):
 
 def run_manual_calibration_eval(split="train"):
     # 1. SETUP PATHS
-    model_path = PROJ_ROOT / "models/runs/synloc_pixel_refinement_1920/weights/best.pt"
+    model_path = PROJ_ROOT / "models/runs/calibration_synloc/weights/best.pt"
     img_dir = PROJ_ROOT / "data/processed/yolo-calibration/images" 
     lbl_dir = PROJ_ROOT / "data/processed/yolo-calibration/labels" 
     

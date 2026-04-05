@@ -188,7 +188,7 @@ class ECE324Pipeline:
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    P_M = PROJ_ROOT / "models/runs/synloc_pixel_refinement_1920/weights/best.pt"
+    P_M = PROJ_ROOT / "models/runs/calibration_synloc/weights/best.pt"
     A_M = PROJ_ROOT / "models/runs/synloc_50/weights/best.pt"
     JSON_P = PROJ_ROOT / "data/SoccerNet/SpiideoSynLoc/annotations/train.json"
     DATA_D = PROJ_ROOT / "data/SoccerNet/SpiideoSynLoc/train/"

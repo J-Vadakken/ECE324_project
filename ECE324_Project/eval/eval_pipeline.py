@@ -166,7 +166,7 @@ class ECE324Evaluator:
 
 if __name__ == "__main__":
     # Ensure these paths match your training runs
-    P_MODEL = PROJ_ROOT / "models/runs/synloc_pixel_refinement_1920/weights/best.pt"
+    P_MODEL = PROJ_ROOT / "models/runs/calibration_synloc/weights/best.pt"
     A_MODEL = PROJ_ROOT / "models/runs/synloc_50/weights/best.pt"
     
     evaluator = ECE324Evaluator(P_MODEL, A_MODEL)

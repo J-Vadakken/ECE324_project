@@ -73,7 +73,7 @@ def print_metrics_table(results):
 
 if __name__ == "__main__":
     # Define your model paths
-    PITCH_MODEL = PROJ_ROOT / "models/runs/synloc_pixel_refinement_1920/weights/best.pt"
+    PITCH_MODEL = PROJ_ROOT / "models/runs/calibration_synloc/weights/best.pt"
     PLAYER_MODEL = PROJ_ROOT / "models/runs/synloc_50/weights/best.pt"
     
     models_to_test = [PITCH_MODEL, PLAYER_MODEL]

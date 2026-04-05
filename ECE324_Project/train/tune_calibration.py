@@ -39,10 +39,10 @@ def finetune_synloc():
         warmup_epochs=0,
         patience=0,           
         project=str(PROJ_ROOT / "models/runs"),
-        name="synloc_pixel_refinement_1920"
+        name="calibration_synloc"
     )
 
-    logger.info("🎉 Fine-tuning complete! Check 'synloc_pixel_refinement' for results.")
+    logger.info("🎉 Fine-tuning complete! Check 'calibration_synloc' for results.")
 
 if __name__ == "__main__":
     finetune_synloc()
