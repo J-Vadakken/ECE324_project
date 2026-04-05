@@ -102,7 +102,7 @@ Potential Applications of Position Tracking:
     ├── train               <- Training and hyperparameter tuning scripts
     │   ├── train_calibration.py    <- Trains YOLOv8-Pose for pitch keypoints
     │   ├── train_synloc.py         <- Trains YOLOv8-Detect for player detection
-    │   └── tune_calibration.py     <- Hyperparameter search for calibration model
+    │   └── train_calib_synloc.py   <- Trains YOLOv8-Pose for pitch keypoints on manually annotated keypoint dataset
     │
     └── eval                <- Evaluation scripts
         ├── eval_calibration.py         <- Evaluates keypoint model on calibration set
@@ -129,7 +129,14 @@ pip install -e .
 python -m ECE324_Project.dataset.dataset_download
 ```
 
-This downloads `calibration-2023` and `SpiideoSynLoc` from SoccerNet into `data/SoccerNet/`.
+This downloads `SpiideoSynLoc` from SoccerNet into `data/SoccerNet/`. 
+
+To unzip the files:
+```bash
+cd data/SoccerNet/SpiideoSynLoc
+for z in *.zip; do unzip $z; done
+cd ../..
+```
 
 ### 3. Prepare Datasets
 
@@ -140,7 +147,7 @@ python -m ECE324_Project.dataset.prep_calibration
 # Convert SpiideoSynLoc → YOLO Detect format (full dataset)
 python -m ECE324_Project.dataset.prep_synloc
 
-# Sample a reproducible 10k-image subset for detection training
+# Sample a 10k-image subset for training
 python -m ECE324_Project.dataset.synloc_10k
 
 # Manually annotate SynLoc images with 14 pitch keypoints
@@ -151,8 +158,8 @@ python -m ECE324_Project.dataset.synloc_to_calib
 ### 4. Train Models
 
 ```bash
-# Train pitch keypoint model (YOLOv8-Pose, ~50 epochs)
-python -m ECE324_Project.train.train_calibration
+# Train pitch keypoint model on manually annotated images (YOLOv8-Pose, ~50 epochs)
+python -m ECE324_Project.train.train_calib_synloc
 
 # Train player detection model (YOLOv8-Detect, 50 epochs)
 python -m ECE324_Project.train.train_synloc
