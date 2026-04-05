@@ -60,7 +60,7 @@ def draw_blank_radar():
 
 class ECE324Pipeline:
     def __init__(self, pitch_model_path, player_model_path, json_path):
-        logger.info("Initializing Header-Visualizer Pipeline...")
+        logger.info("Initializing Visualizer Pipeline...")
         self.pitch_detector = YOLO(str(pitch_model_path))
         self.player_detector = YOLO(str(player_model_path))
         self.ui_colors = [(0,0,255), (255,0,0), (0,255,255), (255,255,255), (0,0,0), (255,0,255)]
@@ -181,7 +181,7 @@ class ECE324Pipeline:
             # Stack Header and Content
             final_frame = np.vstack((header, combined))
             
-            cv2.imwrite(str(self.out_dir / f"header_{img_name}"), final_frame)
+            cv2.imwrite(str(self.out_dir / f"final_output_{img_name}"), final_frame)
             cv2.imshow("ECE324 Pro Visualizer", final_frame)
             if cv2.waitKey(0) == ord('q'): break
 
