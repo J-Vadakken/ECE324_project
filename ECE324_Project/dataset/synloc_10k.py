@@ -37,6 +37,7 @@ def create_custom_split(total_size=10000, val_ratio=0.2):
     logger.info(f"✅ Found {len(valid_pairs)} verified pairs. Shuffling and splitting...")
 
     # 4. Shuffle to ensure random distribution and prevent data leakage
+    random.seed(42)
     random.shuffle(valid_pairs)
 
     # 5. Calculate split sizes (8000 train, 2000 val)

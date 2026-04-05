@@ -113,5 +113,74 @@ Potential Applications of Position Tracking:
         └── model_sizes.py              <- Reports model parameter counts and latency
 ```
 
+## Reproducing Results
+
+### 1. Setup
+
+```bash
+conda env create -f environment.yml
+conda activate ece324
+pip install -e .
+```
+
+### 2. Download Data
+
+```bash
+python -m ECE324_Project.dataset.dataset_download
+```
+
+This downloads `calibration-2023` and `SpiideoSynLoc` from SoccerNet into `data/SoccerNet/`.
+
+### 3. Prepare Datasets
+
+```bash
+# Convert calibration-2023 → YOLO Pose format (14-KP labels)
+python -m ECE324_Project.dataset.prep_calibration
+
+# Convert SpiideoSynLoc → YOLO Detect format (full dataset)
+python -m ECE324_Project.dataset.prep_synloc
+
+# Sample a reproducible 10k-image subset for detection training
+python -m ECE324_Project.dataset.synloc_10k
+
+# Manually annotate SynLoc images with 14 pitch keypoints
+# (generates yolo-calibration used for calibration_synloc model)
+python -m ECE324_Project.dataset.synloc_to_calib
+```
+
+### 4. Train Models
+
+```bash
+# Train pitch keypoint model (YOLOv8-Pose, ~50 epochs)
+python -m ECE324_Project.train.train_calibration
+
+# Train player detection model (YOLOv8-Detect, 50 epochs)
+python -m ECE324_Project.train.train_synloc
+```
+
+Weights are saved to `models/runs/calibration_synloc/weights/best.pt` and `models/runs/synloc_50/weights/best.pt` respectively.
+
+### 5. Evaluate
+
+```bash
+# End-to-end pipeline evaluation (mAP, LocSim, F1, mean distance)
+python -m ECE324_Project.eval.eval_pipeline
+
+# Individual model evaluations
+python -m ECE324_Project.eval.eval_calibration
+python -m ECE324_Project.eval.eval_synloc
+
+# Model size and latency report
+python -m ECE324_Project.eval.model_sizes
+```
+
+### 6. Run the Pipeline
+
+```bash
+python -m ECE324_Project.pipeline
+```
+
+This runs the full inference pipeline on the SpiideoSynLoc train set and saves annotated output frames (camera view + 2D radar) to `results/visuals/`.
+
 --------
 
