@@ -200,7 +200,7 @@ if __name__ == "__main__":
     evaluator = ECE324Evaluator(P_MODEL, A_MODEL)
 
     t_json = PROJ_ROOT / "data/SoccerNet/SpiideoSynLoc/annotations/train.json"
-    t_dir = PROJ_ROOT / "data/processed/yolo-calibration/images"
+    t_dir = PROJ_ROOT / "data/SoccerNet/SpiideoSynLoc/train/"
     evaluator.evaluate_set("TRAIN", t_json, t_dir, limit=150)
 
     v_json = PROJ_ROOT / "data/SoccerNet/SpiideoSynLoc/annotations/test.json"
